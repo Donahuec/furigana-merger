@@ -14,6 +14,20 @@ class CharacterType(Enum):
     OTHER = 'other'
 
 class FuriganaMerger:
+    def __init__(self, 
+                 full_file: str, 
+                 kana_file: str, 
+                 merged_file: str, 
+                 new_kana_file: str, 
+                 furigana_template: str, 
+                 kana_template: str):
+        self.full_file = full_file
+        self.kana_file = kana_file
+        self.merged_file = merged_file
+        self.new_kana_file = new_kana_file
+        self.furigana_template = furigana_template
+        self.kana_template = kana_template
+
     def clean_string(self, string: str) -> str:
         return string.translate(str.maketrans('', '', '\t\n\r\f\v \u3000'))
 
@@ -101,11 +115,8 @@ class FuriganaMerger:
                     'kanji': segment_text,
                     'hiragana': match.groups()[match_index]
                 }
-                furigana_template = '{${hiragana}|${kanji}}'
-                furigana_out += self.format_from_template(furigana_template, format_vars)
-
-                kana_template = '**${hiragana}**'
-                kana_out += self.format_from_template(kana_template, format_vars)
+                furigana_out += self.format_from_template(self.furigana_template, format_vars)
+                kana_out += self.format_from_template(self.kana_template, format_vars)
 
                 match_index += 1
             elif segment_type == CharacterType.KATAKANA:
@@ -126,12 +137,12 @@ class FuriganaMerger:
         match = self.build_matches(regex, kana)
         return self.match_furigana(segments, match)
 
-    def merge_files(self, full_file: str, kana_file: str, merged_file: str, new_kana_file: str):
+    def merge_files(self):
         print("Merging files...")
-        full_file = open(full_file, "r")
-        kana_file = open(kana_file, "r")
-        merged_file = open(merged_file, "w")
-        new_kana_file = open(new_kana_file, "w")
+        full_file = open(self.full_file, "r")
+        kana_file = open(self.kana_file, "r")
+        merged_file = open(self.merged_file, "w")
+        new_kana_file = open(self.new_kana_file, "w")
         full_lines = full_file.readlines()
         kana_lines = kana_file.readlines()
         for i in range(len(full_lines)):
@@ -157,9 +168,18 @@ def main():
     kana_file = "inputs/kana.txt"
     merged_file = "outputs/merged.txt"
     new_kana_file = "outputs/kana.txt"
+    furigana_template = '{${hiragana}|${kanji}}'
+    kana_template = '**${hiragana}**'
 
-    merger = FuriganaMerger()
-    merger.merge_files(full_file, kana_file, merged_file, new_kana_file)
+    merger = FuriganaMerger(
+        full_file=full_file,
+        kana_file=kana_file,
+        merged_file=merged_file,
+        new_kana_file=new_kana_file,
+        furigana_template=furigana_template,
+        kana_template=kana_template
+    )
+    merger.merge_files()
 
 if __name__ == "__main__":
     main()
