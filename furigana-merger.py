@@ -1,59 +1,46 @@
 
 import re
+from enum import Enum
 
-def clean_string(string):
-    out = string
-    out = re.sub(r'\s', '', out)
-    return out
+class CharacterType(Enum):
+    KANJI = 'kanji'
+    HIRAGANA = 'hiragana'
+    KATAKANA = 'katakana'
+    OTHER = 'other'
 
-def is_kanji(char):
-    kanji_regex = '[一-龯々]'
-    match = re.match(kanji_regex, char)
-    return match is not None
+KANJI_REGEX = re.compile(r'[一-龯々]')
+HIRAGANA_REGEX = re.compile(r'[ぁ-ん]')
+KATAKANA_REGEX = re.compile(r'[ァ-ン]')
 
-def is_hiragana(char):
-    hiragana_regex = '[ぁ-ん]'
-    match = re.match(hiragana_regex, char)
-    return match is not None
+def clean_string(string: str) -> str:
+    return string.translate(str.maketrans('', '', '\t\n\r\f\v \u3000'))
 
-def is_katakana(char):
-    katakana_regex = '[ァ-ン]'
-    match = re.match(katakana_regex, char)
-    return match is not None
+def is_kanji(char: str) -> bool:
+    return bool(KANJI_REGEX.match(char))
 
-def get_char_type(char):
+def is_hiragana(char: str) -> bool:
+    return bool(HIRAGANA_REGEX.match(char))
+
+def is_katakana(char: str) -> bool:
+    return bool(KATAKANA_REGEX.match(char))
+
+def get_char_type(char: str) -> CharacterType:
     if is_kanji(char):
-        return 'kanji'
+        return CharacterType.KANJI
     elif is_hiragana(char):
-        return 'hiragana'
+        return CharacterType.HIRAGANA
     elif is_katakana(char):
-        return 'katakana'
-    else:
-        return 'other'
+        return CharacterType.KATAKANA
+    return CharacterType.OTHER
+
+def segment_char_types(full_string: str) -> list[tuple[str, CharacterType]]:
+    """
+    Takes a string and breaks it into a list of tuples segmented on character type.
+    Each tuple contains a segment of the string and the type of characters in that segment.
     
-def segment_kanji(full_string):
-    segments = []
-    current_block = ''
-    last_was_kanji = False
-    # take the string full and break it into a list separating segments of kanji and kana
-    for i in range(len(full_string)):
-        if is_kanji(full_string[i]):
-            if not last_was_kanji and not current_block == '':
-                segments.append(current_block)
-                current_block = ''
-            current_block += full_string[i]
-            last_was_kanji = True
-        else:
-            if last_was_kanji and not current_block == '':
-                segments.append(current_block)
-                current_block = ''
-            current_block += full_string[i]
-            last_was_kanji = False
-    segments.append(current_block)
-    return segments
-
-
-def segment_char_types(full_string):
+    Example: segment_kanji('漢字です。カタカナ') -> 
+    [('漢字', CharacterType.KANJI), ('です', CharacterType.HIRAGANA), ('。', CharacterType.OTHER), ('カタカナ', CharacterType.KATAKANA)]
+    """
     segments = []
     current_block = ''
     last_type = ''
@@ -69,6 +56,7 @@ def segment_char_types(full_string):
             current_block += full_string[i]
             last_type = cur_type
     segments.append((current_block, last_type))
+    print(segments)
     return segments
 
 def build_regex(segments):
@@ -76,15 +64,17 @@ def build_regex(segments):
     for segment in segments:
         segment_text = segment[0]
         segment_type = segment[1]
-        if segment_type == 'kanji':
+        if segment_type == CharacterType.KANJI:
             regex += '([ぁ-ん]+)'
-        elif segment_type == 'katakana':
-            regex += '[ぁ-んァ-ン]{0,' + str(len(segment_text)) + '}'
-        elif segment_type == 'hiragana':
+        elif segment_type == CharacterType.HIRAGANA:
             # these particles don't always get converted to hiragana well
             segment_text = re.sub(r'は', '[はわ]', segment_text)
             segment_text = re.sub(r'を', '[をお]', segment_text)
             regex += segment_text
+        elif segment_type == CharacterType.KATAKANA:
+            # sometimes hirigana conversion for lyrics overwill convert katakana to hirigana
+            # so we just want to match the length of the segment and that it is kana
+            regex += '[ぁ-んァ-ン]{0,' + str(len(segment_text)) + '}'
         else:
             regex += '.{0,' + str(len(segment_text)) + '}'
     return regex
@@ -99,11 +89,11 @@ def match_furigana(segments, match):
     for segment in segments:
         segment_text = segment[0]
         segment_type = segment[1]
-        if segment_type == 'kanji':
+        if segment_type == CharacterType.KANJI:
             furigana += '{' + segment_text + '|' + match.groups()[match_index] + '}'
             kana += match.groups()[match_index]
             match_index += 1
-        elif segment_type == 'katakana':
+        elif segment_type == CharacterType.KATAKANA:
             furigana += segment_text
             kana += segment_text
         else:
@@ -144,12 +134,13 @@ def merge_files(full_file, kana_file, merged_file, new_kana_file):
     new_kana_file.close()
     print("Files merged!")
 
+def main():
+    full_file = "inputs/full.txt"
+    kana_file = "inputs/kana.txt"
+    merged_file = "outputs/merged.txt"
+    new_kana_file = "outputs/kana.txt"
 
-full_file = "inputs/full.txt"
-kana_file = "inputs/kana.txt"
-merged_file = "outputs/merged.txt"
-new_kana_file = "outputs/kana.txt"
+    merge_files(full_file, kana_file, merged_file, new_kana_file)
 
-merge_files(full_file, kana_file, merged_file, new_kana_file)
-
-
+if __name__ == "__main__":
+    main()
