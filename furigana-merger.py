@@ -56,15 +56,15 @@ def segment_char_types(full_string: str) -> list[tuple[str, CharacterType]]:
             current_block += full_string[i]
             last_type = cur_type
     segments.append((current_block, last_type))
-    print(segments)
     return segments
 
-def build_regex(segments):
+def build_regex(segments: list[tuple[str, CharacterType]]) -> str:
     regex = ''
     for segment in segments:
         segment_text = segment[0]
         segment_type = segment[1]
         if segment_type == CharacterType.KANJI:
+            # we want to match the hiragana conversion of the kanji
             regex += '([ぁ-ん]+)'
         elif segment_type == CharacterType.HIRAGANA:
             # these particles don't always get converted to hiragana well
@@ -79,10 +79,10 @@ def build_regex(segments):
             regex += '.{0,' + str(len(segment_text)) + '}'
     return regex
 
-def build_matches(regex, kana):
+def build_matches(regex: str, kana: str) -> re.Match:
     return re.match(regex, kana)
 
-def match_furigana(segments, match):
+def match_furigana(segments: list[tuple[str, CharacterType]], match: str) -> tuple[str, str]:
     furigana = ''
     kana = ''
     match_index = 0
@@ -101,7 +101,7 @@ def match_furigana(segments, match):
             kana += segment_text
     return (furigana, kana)
 
-def merge_furigana(full, kana):
+def merge_furigana(full: str, kana: str) -> tuple[str, str]:
     full = clean_string(full)
     kana = clean_string(kana)
     segments = segment_char_types(full)
@@ -109,7 +109,7 @@ def merge_furigana(full, kana):
     match = build_matches(regex, kana)
     return match_furigana(segments, match)
 
-def merge_files(full_file, kana_file, merged_file, new_kana_file):
+def merge_files(full_file: str, kana_file: str, merged_file: str, new_kana_file: str):
     print("Merging files...")
     full_file = open(full_file, "r")
     kana_file = open(kana_file, "r")
