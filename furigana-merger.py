@@ -1,6 +1,7 @@
 
 import re
 from enum import Enum
+from string import Template
 
 class CharacterType(Enum):
     KANJI = 'kanji'
@@ -77,33 +78,48 @@ def build_regex(segments: list[tuple[str, CharacterType]]) -> str:
             regex += '[ぁ-んァ-ン]{0,' + str(len(segment_text)) + '}'
         else:
             regex += '.{0,' + str(len(segment_text)) + '}'
+    print(regex)
     return regex
 
 def build_matches(regex: str, kana: str) -> re.Match:
     return re.match(regex, kana)
 
+def format_from_template(template: str, format_vars: dict) -> str:
+    template = Template(template)
+    return template.safe_substitute(format_vars)
+
 def match_furigana(segments: list[tuple[str, CharacterType]], match: str) -> tuple[str, str]:
-    furigana = ''
-    kana = ''
+    furigana_out = ''
+    kana_out = ''
     match_index = 0
     for segment in segments:
         segment_text = segment[0]
         segment_type = segment[1]
         if segment_type == CharacterType.KANJI:
-            furigana += '{' + segment_text + '|' + match.groups()[match_index] + '}'
-            kana += match.groups()[match_index]
+            format_vars = {
+                'kanji': segment_text,
+                'hiragana': match.groups()[match_index]
+            }
+            furigana_template = '{${hiragana}|${kanji}}'
+            furigana_out += format_from_template(furigana_template, format_vars)
+
+            kana_template = '**${hiragana}**'
+            kana_out += format_from_template(kana_template, format_vars)
+
             match_index += 1
         elif segment_type == CharacterType.KATAKANA:
-            furigana += segment_text
-            kana += segment_text
+            furigana_out += segment_text
+            kana_out += segment_text
         else:
-            furigana += segment_text
-            kana += segment_text
-    return (furigana, kana)
+            furigana_out += segment_text
+            kana_out += segment_text
+    return (furigana_out, kana_out)
 
 def merge_furigana(full: str, kana: str) -> tuple[str, str]:
     full = clean_string(full)
     kana = clean_string(kana)
+    print(full)
+    print(kana)
     segments = segment_char_types(full)
     regex = build_regex(segments)
     match = build_matches(regex, kana)
@@ -118,6 +134,7 @@ def merge_files(full_file: str, kana_file: str, merged_file: str, new_kana_file:
     full_lines = full_file.readlines()
     kana_lines = kana_file.readlines()
     for i in range(len(full_lines)):
+        print(i)
         # check if line is empty
         if full_lines[i] == '\n':
             merged_file.write('\n')
