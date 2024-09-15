@@ -1,6 +1,6 @@
 /bin
 /include
-/outputs/*
-/inputs/*
+/outputs
+/inputs
 pyvenv.cfg
 /lib
