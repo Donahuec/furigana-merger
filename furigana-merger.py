@@ -1,37 +1,25 @@
 
-
-from wanakana import kanji
-from wanakana import katakana
-from wanakana import hiragana
-from wanakana import kana
 import re
+
 def clean_string(string):
     out = string
-    # replace variations of quotes with single quotes
-    # quotes = ['“', '”', '‘', '’', '"', "'", '「', '」']
-    # for quote in quotes:
-    #     out = re.sub(quote, "'", out)
-    #replace english commas with japanese commas
-    # out = re.sub(r',', '、', out)
-    #replace english periods with japanese periods
-    # out = re.sub(r'\.', '。', out)
-    #replace english question marks with japanese question marks
-    # out = re.sub(r'\?', '？', out)
     out = re.sub(r'\s', '', out)
     return out
 
 def is_kanji(char):
-    special = ['々']
-    return char in special or kanji.is_kanji(char)
-
-def is_kana(char):
-    return kana.is_kana(char)
+    kanji_regex = '[一-龯々]'
+    match = re.match(kanji_regex, char)
+    return match is not None
 
 def is_hiragana(char):
-    return hiragana.is_hiragana(char)
+    hiragana_regex = '[ぁ-ん]'
+    match = re.match(hiragana_regex, char)
+    return match is not None
 
 def is_katakana(char):
-    return katakana.is_katakana(char)
+    katakana_regex = '[ァ-ン]'
+    match = re.match(katakana_regex, char)
+    return match is not None
 
 def get_char_type(char):
     if is_kanji(char):
@@ -40,8 +28,6 @@ def get_char_type(char):
         return 'hiragana'
     elif is_katakana(char):
         return 'katakana'
-    elif is_kana(char):
-        return 'kana'
     else:
         return 'other'
     
@@ -95,13 +81,12 @@ def build_regex(segments):
         elif segment_type == 'katakana':
             regex += '[ぁ-んァ-ン]{0,' + str(len(segment_text)) + '}'
         elif segment_type == 'hiragana':
+            # these particles don't always get converted to hiragana well
             segment_text = re.sub(r'は', '[はわ]', segment_text)
             segment_text = re.sub(r'を', '[をお]', segment_text)
             regex += segment_text
         else:
-            # add a wildcard check for the length of the segment
             regex += '.{0,' + str(len(segment_text)) + '}'
-    print(regex)
     return regex
 
 def build_matches(regex, kana):
@@ -128,9 +113,7 @@ def match_furigana(segments, match):
 
 def merge_furigana(full, kana):
     full = clean_string(full)
-    print(full)
     kana = clean_string(kana)
-    print(kana)
     segments = segment_char_types(full)
     regex = build_regex(segments)
     match = build_matches(regex, kana)
@@ -145,7 +128,6 @@ def merge_files(full_file, kana_file, merged_file, new_kana_file):
     full_lines = full_file.readlines()
     kana_lines = kana_file.readlines()
     for i in range(len(full_lines)):
-        print(i)
         # check if line is empty
         if full_lines[i] == '\n':
             merged_file.write('\n')
@@ -160,6 +142,7 @@ def merge_files(full_file, kana_file, merged_file, new_kana_file):
     kana_file.close()
     merged_file.close()
     new_kana_file.close()
+    print("Files merged!")
 
 
 full_file = "inputs/full.txt"
@@ -169,18 +152,4 @@ new_kana_file = "outputs/kana.txt"
 
 merge_files(full_file, kana_file, merged_file, new_kana_file)
 
-def clean_file(file_name):
-    print("Cleaning files...")
-    file = open(file_name, "r")
-    lines = file.readlines()
-    for i in range(len(lines)):
-        if lines[i] == '\n':
-            print()
-        else:
-            print(clean_string(lines[i]))  
-    file.close()
-
-
-
-# clean_file("inputs/kana.txt")
 
