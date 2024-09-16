@@ -2,6 +2,7 @@
 import re
 from enum import Enum
 from string import Template
+import argparse
 
 KANJI_REGEX = re.compile(r'[一-龯々]')
 HIRAGANA_REGEX = re.compile(r'[ぁ-ん]')
@@ -164,20 +165,22 @@ class FuriganaMerger:
         print("Files merged!")
 
 def main():
-    full_file = "inputs/full.txt"
-    kana_file = "inputs/kana.txt"
-    merged_file = "outputs/merged.txt"
-    new_kana_file = "outputs/kana.txt"
-    furigana_template = '{${hiragana}|${kanji}}'
-    kana_template = '**${hiragana}**'
+    parser = argparse.ArgumentParser(description='Merge furigana and kana files.')
+    parser.add_argument('-f', '--full_file', type=str, default="inputs/full.txt", help='Path to the full text file')
+    parser.add_argument('-k', '--kana_file', type=str, default="inputs/kana.txt", help='Path to the kana text file')
+    parser.add_argument('-m', '--merged_file', type=str, default="outputs/merged.txt", help='Path to the merged output file')
+    parser.add_argument('-n', '--new_kana_file', type=str, default="outputs/kana.txt", help='Path to the new kana output file')
+    parser.add_argument('-ft', '--furigana_template', type=str, default='{${hiragana}|${kanji}}', help='Template for furigana')
+    parser.add_argument('-kt', '--kana_template', type=str, default='**${hiragana}**', help='Template for kana')
+    args = parser.parse_args()
 
     merger = FuriganaMerger(
-        full_file=full_file,
-        kana_file=kana_file,
-        merged_file=merged_file,
-        new_kana_file=new_kana_file,
-        furigana_template=furigana_template,
-        kana_template=kana_template
+        full_file=args.full_file,
+        kana_file=args.kana_file,
+        merged_file=args.merged_file,
+        new_kana_file=args.new_kana_file,
+        furigana_template=args.furigana_template,
+        kana_template=args.kana_template
     )
     merger.merge_files()
 
