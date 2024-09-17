@@ -89,6 +89,7 @@ class FuriganaMerger:
                 # these particles don't always get converted to hiragana well
                 segment_text = re.sub(r'は', '(?:は|わ)', segment_text)
                 segment_text = re.sub(r'を', '[をお]', segment_text)
+                segment_text = re.sub(r'へ', '[へえ]', segment_text)
                 regex += segment_text
             elif segment_type == CharacterType.KATAKANA:
                 # sometimes hirigana conversion for lyrics overwill convert katakana to hirigana
@@ -103,7 +104,10 @@ class FuriganaMerger:
         return regex
 
     def build_matches(self, regex: str, kana: str) -> re.Match:
-        return re.match(regex, kana)
+        match = re.match(regex, kana)
+        if not match:
+            print("No match found! for regex: " + regex + " and kana: " + kana)
+        return match
 
     def format_from_template(self, template: str, format_vars: dict) -> str:
         template = Template(template)
