@@ -3,6 +3,7 @@ import re
 from enum import Enum
 from string import Template
 import argparse
+import sys
 
 KANJI_REGEX = re.compile(r'[一-龯々]')
 HIRAGANA_REGEX = re.compile(r'[ぁ-ん]')
@@ -73,6 +74,7 @@ class FuriganaMerger:
                 current_block += full_string[i]
                 last_type = cur_type
         segments.append((current_block, last_type))
+        print(segments)
         return segments
 
     def build_regex(self, segments: list[tuple[str, CharacterType]]) -> str:
@@ -82,16 +84,19 @@ class FuriganaMerger:
             segment_type = segment[1]
             if segment_type == CharacterType.KANJI:
                 # we want to match the hiragana conversion of the kanji
-                regex += '([ぁ-ん]+)'
+                regex += '([ぁ-ん]+?)'
             elif segment_type == CharacterType.HIRAGANA:
                 # these particles don't always get converted to hiragana well
-                segment_text = re.sub(r'は', '[はわ]', segment_text)
+                segment_text = re.sub(r'は', '(?:は|わ)', segment_text)
                 segment_text = re.sub(r'を', '[をお]', segment_text)
                 regex += segment_text
             elif segment_type == CharacterType.KATAKANA:
                 # sometimes hirigana conversion for lyrics overwill convert katakana to hirigana
                 # so we just want to match the length of the segment and that it is kana
-                regex += '[ぁ-んァ-ン]{0,' + str(len(segment_text)) + '}'
+                # we also want to allow for a little bit of leeway in the length
+                min_length = max(0, len(segment_text) - 1)
+                max_length = len(segment_text) + 1
+                regex += '[ぁ-んァ-ン]{' + str(min_length) + ',' + str(max_length) + '}'
             else:
                 regex += '.{0,' + str(len(segment_text)) + '}'
         print(regex)
@@ -147,7 +152,7 @@ class FuriganaMerger:
         full_lines = full_file.readlines()
         kana_lines = kana_file.readlines()
         for i in range(len(full_lines)):
-            print(i)
+            print(i + 1)
             # check if line is empty
             if full_lines[i] == '\n':
                 merged_file.write('\n')
@@ -170,9 +175,13 @@ def main():
     parser.add_argument('-k', '--kana_file', type=str, default="inputs/kana.txt", help='Path to the kana text file')
     parser.add_argument('-m', '--merged_file', type=str, default="outputs/merged.txt", help='Path to the merged output file')
     parser.add_argument('-n', '--new_kana_file', type=str, default="outputs/kana.txt", help='Path to the new kana output file')
-    parser.add_argument('-ft', '--furigana_template', type=str, default='{${hiragana}|${kanji}}', help='Template for furigana')
+    parser.add_argument('-ft', '--furigana_template', type=str, default='{${kanji}|${hiragana}}', help='Template for furigana')
     parser.add_argument('-kt', '--kana_template', type=str, default='**${hiragana}**', help='Template for kana')
+    parser.add_argument('-d', '--debug', action='store_true', help='Enable debug mode')
     args = parser.parse_args()
+
+    if args.debug:
+        sys.stdout = open('outputs/debug.txt', 'w')
 
     merger = FuriganaMerger(
         full_file=args.full_file,
