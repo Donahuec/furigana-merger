@@ -5,3 +5,4 @@
 pyvenv.cfg
 /lib
 .vscode
+__pycache__
