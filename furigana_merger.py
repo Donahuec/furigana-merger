@@ -90,6 +90,7 @@ class FuriganaMerger:
                 segment_text = re.sub(r'は', '(?:は|わ)', segment_text)
                 segment_text = re.sub(r'を', '[をお]', segment_text)
                 segment_text = re.sub(r'へ', '[へえ]', segment_text)
+                segment_text = re.sub(r'[いゆ]', '[いゆ]', segment_text)
                 regex += segment_text
             elif segment_type == CharacterType.KATAKANA:
                 # sometimes hirigana conversion for lyrics overwill convert katakana to hirigana
