@@ -3,7 +3,10 @@ import re
 from enum import Enum
 from string import Template
 import argparse
-import sys
+import logging
+
+logger = logging.getLogger('furigana_merger')
+logger.setLevel(logging.DEBUG)
 
 KANJI_REGEX = re.compile(r'[一-龯々]')
 HIRAGANA_REGEX = re.compile(r'[ぁ-ん]')
@@ -74,7 +77,6 @@ class FuriganaMerger:
                 current_block += full_string[i]
                 last_type = cur_type
         segments.append((current_block, last_type))
-        print(segments)
         return segments
 
     def build_regex(self, segments: list[tuple[str, CharacterType]]) -> str:
@@ -84,7 +86,7 @@ class FuriganaMerger:
             segment_type = segment[1]
             if segment_type == CharacterType.KANJI:
                 # we want to match the hiragana conversion of the kanji
-                regex += '([ぁ-ん]+?)'
+                regex += '([ぁ-ん]+)'
             elif segment_type == CharacterType.HIRAGANA:
                 # these particles don't always get converted to hiragana well
                 segment_text = re.sub(r'は', '(?:は|わ)', segment_text)
@@ -101,13 +103,13 @@ class FuriganaMerger:
                 regex += '[ぁ-んァ-ン]{' + str(min_length) + ',' + str(max_length) + '}'
             else:
                 regex += '.{0,' + str(len(segment_text)) + '}'
-        print(regex)
+        logger.debug(regex)
         return regex
 
     def build_matches(self, regex: str, kana: str) -> re.Match:
         match = re.match(regex, kana)
         if not match:
-            print("No match found! for regex: " + regex + " and kana: " + kana)
+            logger.critical("No match found! for regex: " + regex + " and kana: " + kana)
         return match
 
     def format_from_template(self, template: str, format_vars: dict) -> str:
@@ -141,23 +143,26 @@ class FuriganaMerger:
     def merge_furigana(self, full: str, kana: str) -> tuple[str, str]:
         full = self.clean_string(full)
         kana = self.clean_string(kana)
-        print(full)
-        print(kana)
+        logger.debug(full)
+        logger.debug(kana)
         segments = self.segment_char_types(full)
         regex = self.build_regex(segments)
         match = self.build_matches(regex, kana)
         return self.match_furigana(segments, match)
 
     def merge_files(self):
-        print("Merging files...")
+        logger.info("Merging files...")
         full_file = open(self.full_file, "r")
         kana_file = open(self.kana_file, "r")
         merged_file = open(self.merged_file, "w")
         new_kana_file = open(self.new_kana_file, "w")
         full_lines = full_file.readlines()
         kana_lines = kana_file.readlines()
+        num_errors = 0
+        error_lines = []
         for i in range(len(full_lines)):
-            print(i + 1)
+            logger.debug("=====================================")
+            logger.debug("Merging line " + str(i + 1))
             # check if line is empty
             if full_lines[i] == '\n':
                 merged_file.write('\n')
@@ -165,14 +170,25 @@ class FuriganaMerger:
             else:
                 full = full_lines[i]
                 kana = kana_lines[i]
-                furigana = self.merge_furigana(full, kana)
+                try:
+                    furigana = self.merge_furigana(full, kana)
+                except:
+                    msg = "!!! Error merging line " + str(i + 1) + " !!!"
+                    num_errors += 1
+                    error_lines.append(i + 1)
+                    logger.critical(msg)
+                    merged_file.write(msg + '\n')
+                    new_kana_file.write(msg + '\n') 
+                    continue
                 merged_file.write(furigana[0] + '\n')
-                new_kana_file.write(furigana[1] + '\n')    
+                new_kana_file.write(furigana[1] + '\n') 
         full_file.close()
         kana_file.close()
         merged_file.close()
         new_kana_file.close()
-        print("Files merged!")
+        logger.info("Merging complete with " + str(num_errors) + " errors.")
+        if num_errors > 0:
+            logger.info("Errors occurred on lines: " + str(error_lines))
 
 def main():
     parser = argparse.ArgumentParser(description='Merge furigana and kana files.')
@@ -185,8 +201,16 @@ def main():
     parser.add_argument('-d', '--debug', action='store_true', help='Enable debug mode')
     args = parser.parse_args()
 
+    
+
+    stream_handler = logging.StreamHandler()
+    stream_handler.setLevel(logging.INFO)
+    logger.addHandler(stream_handler)
+
     if args.debug:
-        sys.stdout = open('outputs/debug.txt', 'w')
+        file_handler = logging.FileHandler('debug.log', mode='w')
+        file_handler.setLevel(logging.DEBUG)
+        logger.addHandler(file_handler)
 
     merger = FuriganaMerger(
         full_file=args.full_file,
