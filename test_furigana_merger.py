@@ -55,7 +55,7 @@ class TestFuriganaMerger(unittest.TestCase):
             ('カタカナ', CharacterType.KATAKANA)
         ]
         regex = self.merger.build_regex(segments)
-        expected_regex = '([ぁ-ん]+?)です.{0,1}[ぁ-んァ-ン]{3,5}'
+        expected_regex = '([ぁ-ん]+)です.{0,1}[ぁ-んァ-ン]{3,5}'
         self.assertEqual(regex, expected_regex)
 
     def test_format_from_template(self):
