@@ -77,6 +77,7 @@ class FuriganaMerger:
                 current_block += full_string[i]
                 last_type = cur_type
         segments.append((current_block, last_type))
+        logger.debug("segments:  " + ' '.join([segment[0] for segment in segments]))
         return segments
 
     def build_regex(self, segments: list[tuple[str, CharacterType]]) -> str:
@@ -103,7 +104,7 @@ class FuriganaMerger:
                 regex += '[ぁ-んァ-ン]{' + str(min_length) + ',' + str(max_length) + '}'
             else:
                 regex += '.{0,' + str(len(segment_text)) + '}'
-        logger.debug(regex)
+        logger.debug("regex:     " + regex)
         return regex
 
     def build_matches(self, regex: str, kana: str) -> re.Match:
@@ -143,9 +144,9 @@ class FuriganaMerger:
     def merge_furigana(self, full: str, kana: str) -> tuple[str, str]:
         full = self.clean_string(full)
         kana = self.clean_string(kana)
-        logger.debug(full)
-        logger.debug(kana)
+        logger.debug("full:      " + full)
         segments = self.segment_char_types(full)
+        logger.debug("kana:      " + kana)
         regex = self.build_regex(segments)
         match = self.build_matches(regex, kana)
         return self.match_furigana(segments, match)
@@ -160,9 +161,18 @@ class FuriganaMerger:
         kana_lines = kana_file.readlines()
         num_errors = 0
         error_lines = []
+
+        logger.debug("\n===== Configuration =====\n")
+        logger.debug("Full file: " + self.full_file)
+        logger.debug("Kana file: " + self.kana_file)
+        logger.debug("Merged file: " + self.merged_file)
+        logger.debug("New kana file: " + self.new_kana_file)
+        logger.debug("Furigana template: " + self.furigana_template)
+        logger.debug("Kana template: " + self.kana_template)
+
+        logger.debug("\n===== Starting Merge =====\n")
         for i in range(len(full_lines)):
-            logger.debug("=====================================")
-            logger.debug("Merging line " + str(i + 1))
+            logger.debug("\n===== Merging line " + str(i + 1) + " =====")
             # check if line is empty
             if full_lines[i] == '\n':
                 merged_file.write('\n')
@@ -186,6 +196,7 @@ class FuriganaMerger:
         kana_file.close()
         merged_file.close()
         new_kana_file.close()
+        logger.debug("\n===== Merging complete =====\n")
         logger.info("Merging complete with " + str(num_errors) + " errors.")
         if num_errors > 0:
             logger.info("Errors occurred on lines: " + str(error_lines))
