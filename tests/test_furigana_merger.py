@@ -86,8 +86,10 @@ class TestFuriganaMerger(unittest.TestCase):
         full = '漢字です123年'
         kana = 'かんじですいちにさんねん'
         furigana_out, kana_out = self.merger.merge_furigana(full, kana)
-        self.assertEqual(furigana_out, '{漢字|かんじ}です{123年|いちにさんねん}')
-        self.assertEqual(kana_out, '**かんじ**です**いちにさんねん**')
+        with self.subTest('furigana'):
+            self.assertEqual(furigana_out, '{漢字|かんじ}です{123年|いちにさんねん}')
+        with self.subTest('kana'):
+            self.assertEqual(kana_out, '**かんじ**です**いちにさんねん**')
 
 if __name__ == '__main__':
     unittest.main()
