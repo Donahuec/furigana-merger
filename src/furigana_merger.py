@@ -1,22 +1,13 @@
 
 import re
-from enum import Enum
 from string import Template
 import argparse
 import logging
 
+from .japanese_utils import CharacterType, clean_string, get_char_type
+
 logger = logging.getLogger('furigana_merger')
 logger.setLevel(logging.DEBUG)
-
-KANJI_REGEX = re.compile(r'[一-龯々]')
-HIRAGANA_REGEX = re.compile(r'[ぁ-ん]')
-KATAKANA_REGEX = re.compile(r'[ァ-ン]')
-
-class CharacterType(Enum):
-    KANJI = 'kanji'
-    HIRAGANA = 'hiragana'
-    KATAKANA = 'katakana'
-    OTHER = 'other'
 
 class FuriganaMerger:
     def __init__(self, 
@@ -33,26 +24,7 @@ class FuriganaMerger:
         self.furigana_template = furigana_template
         self.kana_template = kana_template
 
-    def clean_string(self, string: str) -> str:
-        return string.translate(str.maketrans('', '', '\t\n\r\f\v \u3000'))
-
-    def is_kanji(self, char: str) -> bool:
-        return bool(KANJI_REGEX.match(char))
-
-    def is_hiragana(self, char: str) -> bool:
-        return bool(HIRAGANA_REGEX.match(char))
-
-    def is_katakana(self, char: str) -> bool:
-        return bool(KATAKANA_REGEX.match(char))
-
-    def get_char_type(self, char: str) -> CharacterType:
-        if self.is_kanji(char):
-            return CharacterType.KANJI
-        elif self.is_hiragana(char):
-            return CharacterType.HIRAGANA
-        elif self.is_katakana(char):
-            return CharacterType.KATAKANA
-        return CharacterType.OTHER
+    
 
     def segment_char_types(self, full_string: str) -> list[tuple[str, CharacterType]]:
         """
@@ -67,7 +39,7 @@ class FuriganaMerger:
         last_type = ''
         # take the string full and break it into a list separating segments of kanji and kana
         for i in range(len(full_string)):
-            cur_type = self.get_char_type(full_string[i])
+            cur_type = get_char_type(full_string[i])
             if cur_type == last_type:
                 current_block += full_string[i]
             else:
@@ -102,6 +74,9 @@ class FuriganaMerger:
                 min_length = max(0, len(segment_text) - 1)
                 max_length = len(segment_text) + 1
                 regex += '[ぁ-んァ-ン]{' + str(min_length) + ',' + str(max_length) + '}'
+            elif segment_type == CharacterType.NUMBER:
+                num_text_length = len(segment_text)
+                regex += f'([0-9０-９]{{{num_text_length}}}|[ぁ-ん]+)'
             else:
                 regex += '.{0,' + str(len(segment_text)) + '}'
         logger.debug("regex:     " + regex)
@@ -121,7 +96,10 @@ class FuriganaMerger:
         furigana_out = ''
         kana_out = ''
         match_index = 0
-        for segment in segments:
+        groups = match.groups()
+        i = 0
+        while i < len(segments):
+            segment = segments[i]
             segment_text = segment[0]
             segment_type = segment[1]
             if segment_type == CharacterType.KANJI:
@@ -131,19 +109,32 @@ class FuriganaMerger:
                 }
                 furigana_out += self.format_from_template(self.furigana_template, format_vars)
                 kana_out += self.format_from_template(self.kana_template, format_vars)
-
                 match_index += 1
-            elif segment_type == CharacterType.KATAKANA:
+            elif segment_type == CharacterType.NUMBER:
+                if i < len(segments) - 1:
+                    neighbor_segment = segments[i + 1]
+                    if neighbor_segment[1] == CharacterType.KANJI:
+                        format_vars = {
+                            'kanji': segment_text + neighbor_segment[0],
+                            'hiragana': match.groups()[match_index] + match.groups()[match_index + 1]
+                        }
+                        furigana_out += self.format_from_template(self.furigana_template, format_vars)
+                        kana_out += self.format_from_template(self.kana_template, format_vars)
+                        i += 2
+                        match_index += 2
+                        continue
+                match_index += 1
                 furigana_out += segment_text
                 kana_out += segment_text
             else:
                 furigana_out += segment_text
                 kana_out += segment_text
+            i += 1
         return (furigana_out, kana_out)
 
     def merge_furigana(self, full: str, kana: str) -> tuple[str, str]:
-        full = self.clean_string(full)
-        kana = self.clean_string(kana)
+        full = clean_string(full)
+        kana = clean_string(kana)
         logger.debug("full:      " + full)
         segments = self.segment_char_types(full)
         logger.debug("kana:      " + kana)
@@ -203,10 +194,10 @@ class FuriganaMerger:
 
 def main():
     parser = argparse.ArgumentParser(description='Merge furigana and kana files.')
-    parser.add_argument('-f', '--full_file', type=str, default="inputs/full.txt", help='Path to the full text file')
-    parser.add_argument('-k', '--kana_file', type=str, default="inputs/kana.txt", help='Path to the kana text file')
-    parser.add_argument('-m', '--merged_file', type=str, default="outputs/merged.txt", help='Path to the merged output file')
-    parser.add_argument('-n', '--new_kana_file', type=str, default="outputs/kana.txt", help='Path to the new kana output file')
+    parser.add_argument('-f', '--full_file', type=str, default="./inputs/full.txt", help='Path to the full text file')
+    parser.add_argument('-k', '--kana_file', type=str, default="./inputs/kana.txt", help='Path to the kana text file')
+    parser.add_argument('-m', '--merged_file', type=str, default="./outputs/merged.txt", help='Path to the merged output file')
+    parser.add_argument('-n', '--new_kana_file', type=str, default="./outputs/kana.txt", help='Path to the new kana output file')
     parser.add_argument('-ft', '--furigana_template', type=str, default='{${kanji}|${hiragana}}', help='Template for furigana')
     parser.add_argument('-kt', '--kana_template', type=str, default='**${hiragana}**', help='Template for kana')
     parser.add_argument('-d', '--debug', action='store_true', help='Enable debug mode')
@@ -219,7 +210,7 @@ def main():
     logger.addHandler(stream_handler)
 
     if args.debug:
-        file_handler = logging.FileHandler('debug.log', mode='w')
+        file_handler = logging.FileHandler('./logs/furigana-merger.log', mode='w')
         file_handler.setLevel(logging.DEBUG)
         logger.addHandler(file_handler)
 

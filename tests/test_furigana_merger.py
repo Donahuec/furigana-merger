@@ -1,6 +1,7 @@
 import re
 import unittest
-from furigana_merger import FuriganaMerger, CharacterType
+from src.furigana_merger import FuriganaMerger
+from src.japanese_utils import CharacterType
 
 class TestFuriganaMerger(unittest.TestCase):
 
@@ -13,29 +14,6 @@ class TestFuriganaMerger(unittest.TestCase):
             furigana_template='{${kanji}|${hiragana}}',
             kana_template='**${hiragana}**'
         )
-
-    def test_clean_string(self):
-        self.assertEqual(self.merger.clean_string(' こんにちは　'), 'こんにちは')
-        self.assertEqual(self.merger.clean_string('\tこんにちは\n'), 'こんにちは')
-
-    def test_is_kanji(self):
-        self.assertTrue(self.merger.is_kanji('漢'))
-        self.assertTrue(self.merger.is_kanji('々'))
-        self.assertFalse(self.merger.is_kanji('あ'))
-
-    def test_is_hiragana(self):
-        self.assertTrue(self.merger.is_hiragana('あ'))
-        self.assertFalse(self.merger.is_hiragana('ア'))
-
-    def test_is_katakana(self):
-        self.assertTrue(self.merger.is_katakana('ア'))
-        self.assertFalse(self.merger.is_katakana('あ'))
-
-    def test_get_char_type(self):
-        self.assertEqual(self.merger.get_char_type('漢'), CharacterType.KANJI)
-        self.assertEqual(self.merger.get_char_type('あ'), CharacterType.HIRAGANA)
-        self.assertEqual(self.merger.get_char_type('ア'), CharacterType.KATAKANA)
-        self.assertEqual(self.merger.get_char_type('a'), CharacterType.OTHER)
 
     def test_segment_char_types(self):
         result = self.merger.segment_char_types('漢字です。カタカナ')
@@ -73,15 +51,43 @@ class TestFuriganaMerger(unittest.TestCase):
         ]
         match = re.match('([ぁ-ん]+?)です.{0,1}[ぁ-んァ-ン]{3,5}', 'かんじです。カタカナ')
         furigana_out, kana_out = self.merger.match_furigana(segments, match)
-        self.assertEqual(furigana_out, '{漢字|かんじ}です。カタカナ')
-        self.assertEqual(kana_out, '**かんじ**です。カタカナ')
+        with self.subTest('furigana'):
+            self.assertEqual(furigana_out, '{漢字|かんじ}です。カタカナ')
+        with self.subTest('kana'):
+            self.assertEqual(kana_out, '**かんじ**です。カタカナ')
 
     def test_merge_furigana(self):
         full = '漢字です。カタカナ'
         kana = 'かんじです。カタカナ'
         furigana_out, kana_out = self.merger.merge_furigana(full, kana)
-        self.assertEqual(furigana_out, '{漢字|かんじ}です。カタカナ')
-        self.assertEqual(kana_out, '**かんじ**です。カタカナ')
+        with self.subTest('furigana'):
+            self.assertEqual(furigana_out, '{漢字|かんじ}です。カタカナ')
+        with self.subTest('kana'):
+            self.assertEqual(kana_out, '**かんじ**です。カタカナ')
+
+    def test_merged_furigana_with_numbers(self):
+        full = '漢字です。カタカナ123'
+        kana = 'かんじです。カタカナ123'
+        furigana_out, kana_out = self.merger.merge_furigana(full, kana)
+        with self.subTest('All numbers - furigana'):
+            self.assertEqual(furigana_out, '{漢字|かんじ}です。カタカナ123')
+        with self.subTest('All numbers - kana'):
+            self.assertEqual(kana_out, '**かんじ**です。カタカナ123')
+        
+        full = '漢字です。カタカナ123'
+        kana = 'かんじです。カタカナいちにさん'
+        furigana_out, kana_out = self.merger.merge_furigana(full, kana)
+        with self.subTest('Hiragana numbers - furigana'):
+            self.assertEqual(furigana_out, '{漢字|かんじ}です。カタカナ123')
+        with self.subTest('Hiragana numbers - kana'):
+            self.assertEqual(kana_out, '**かんじ**です。カタカナ123')
+        
+    def test_merged_furigana_with_numbers_and_kanji(self):
+        full = '漢字です123年'
+        kana = 'かんじですいちにさんねん'
+        furigana_out, kana_out = self.merger.merge_furigana(full, kana)
+        self.assertEqual(furigana_out, '{漢字|かんじ}です{123年|いちにさんねん}')
+        self.assertEqual(kana_out, '**かんじ**です**いちにさんねん**')
 
 if __name__ == '__main__':
     unittest.main()
